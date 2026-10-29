@@ -1,0 +1,19 @@
+# AxonOverlay - wspolna biblioteka pelnoekranowych nakladek.
+#
+# Ten plik zawiera tylko wartosci domyslne. Kazda nakladka (AxonMap, Axon-items)
+# moze nadpisac je w swoim OverlaySpec.
+
+# Ile kafli mapy wolno wyslac do jednego gracza w ciagu sekundy.
+# 10 kafli * 16 KB = ok. 160 KB/s w najgorszym wypadku, ale w praktyce
+# zmienia sie tylko kilka kafli na tick, wiec srednia jest duzo nizsza.
+kafle-na-sekunde: 10
+
+# Domyslny zoom mapy w blokach na piksel.
+domyslny-zoom: 1
+
+# Czy przy zamykaniu nakladki przywracac graczowi pozycje sprzed otwarcia.
+przywracaj-pozycje: true
+
+# Ile tickow czekac po teleporcie do fotela, zanim wyslemy ramki.
+# Krotsze opoznienie moze powodowac migotanie u graczy z wysokim pingiem.
+opoznienie-ramek-ticks: 2

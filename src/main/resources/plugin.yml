@@ -1,0 +1,18 @@
+name: AxonOverlay
+main: pl.axonoverlay.AxonOverlayPlugin
+version: '${version}'
+api-version: '1.21'
+authors: [toMiXgaming]
+description: Wspolna biblioteka pelnoekranowych nakladek dla AxonMap i Axon-items.
+depend: [packetevents]
+
+commands:
+  overlay:
+    description: Ekran testowy nakladek
+    usage: /overlay test
+    permission: axonoverlay.admin
+
+permissions:
+  axonoverlay.admin:
+    description: Dostep do ekranu testowego
+    default: op
