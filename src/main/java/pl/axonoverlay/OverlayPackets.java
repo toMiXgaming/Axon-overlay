@@ -154,6 +154,11 @@ final class OverlayPackets extends PacketListenerAbstract {
         State state = playerId == null ? null : states.get(playerId);
         boolean hidden = state != null && state.handHidden;
         if (event.getPacketType() == PacketType.Play.Server.TIME_UPDATE) {
+            if (!hidden && busyElsewhere(playerId)) {
+                // Gracz ma pełny ekran z drugiego pluginu (AxonMap albo AxonOverlay) — tamten
+                // ustawia czas chowający HUD, więc nie wypychamy go z okna.
+                return;
+            }
             WrapperPlayServerTimeUpdate time = new WrapperPlayServerTimeUpdate(event);
             long age = hidden
                     ? ClientView.mapOpenTime(time.getWorldAge())
@@ -202,5 +207,23 @@ final class OverlayPackets extends PacketListenerAbstract {
                 event.markForReEncode(true);
             }
         }
+    }
+
+    /** Czy gracz siedzi na pełnym ekranie innego pluginu (metadata {@code axonoverlay.busy}). */
+    private static boolean busyElsewhere(UUID playerId) {
+        if (playerId == null) {
+            return false;
+        }
+        org.bukkit.entity.Player player = org.bukkit.Bukkit.getPlayer(playerId);
+        if (player == null) {
+            return false;
+        }
+        for (org.bukkit.metadata.MetadataValue value : player.getMetadata("axonoverlay.busy")) {
+            org.bukkit.plugin.Plugin owning = value.getOwningPlugin();
+            if (owning != null && !owning.getName().equals("AxonOverlay")) {
+                return true;
+            }
+        }
+        return false;
     }
 }

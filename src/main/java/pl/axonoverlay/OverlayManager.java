@@ -5,6 +5,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDismountEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.metadata.MetadataValue;
@@ -163,6 +164,18 @@ final class OverlayManager implements OverlayApi, Listener {
     /** Sesja gracza albo {@code null}. */
     OverlaySessionImpl session(Player player) {
         return player == null ? null : sessions.get(player.getUniqueId());
+    }
+
+    /** Zejście z fotela (Shift u klienta, inny plugin) zamyka ekran, jak w AxonMap. */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onDismount(EntityDismountEvent event) {
+        if (!(event.getEntity() instanceof Player player)) {
+            return;
+        }
+        OverlaySessionImpl session = sessions.get(player.getUniqueId());
+        if (session != null && event.getDismounted().equals(session.seat())) {
+            close(player);
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
