@@ -135,6 +135,11 @@ final class OverlaySessionImpl implements OverlaySession {
         return entityIds;
     }
 
+    /** Fotel tej sesji (do rozpoznania zejścia z niego). */
+    ArmorStand seat() {
+        return seat;
+    }
+
     /** Wywoływane przez nasłuch po kliknięciu w ramkę. */
     void handleClick(boolean right) {
         if (!open) {
@@ -232,6 +237,7 @@ final class OverlaySessionImpl implements OverlaySession {
             close();
             return;
         }
+        keepCursorInside();
         // Kursor z obrotu głowy.
         Location location = player.getLocation();
         double[] cursor = CursorMath.cursor(location.getYaw(), location.getPitch());
@@ -264,11 +270,33 @@ final class OverlaySessionImpl implements OverlaySession {
         if (sneak != lastSneak) {
             lastSneak = sneak;
             listener.onSneak(sneak);
+            // Shift zawsze zamyka ekran, tak jak w AxonMap — inaczej gracz nie ma wyjścia
+            // (Esc nie wysyła serwerowi żadnego pakietu).
+            if (sneak && open) {
+                close();
+                return;
+            }
         }
         // Wysyłka brudnych kafli w limicie.
         int[] tiles = dirty.drain(System.nanoTime());
         if (tiles.length > 0) {
             sendTiles(tiles);
+        }
+    }
+
+    /**
+     * Trzyma głowę w zakresie ekranu, jak w AxonMap. Bez tego kursor wyjeżdża poza
+     * płótno, a obrót o więcej niż pół ekranu odwraca widok od ramek.
+     */
+    private void keepCursorInside() {
+        Location look = player.getLocation();
+        float yaw = Location.normalizeYaw(look.getYaw());
+        float pitch = look.getPitch();
+        float maxYaw = (float) (OverlayLayout.CURSOR_YAW_RANGE / 2.0);
+        float maxPitch = (float) (OverlayLayout.CURSOR_PITCH_RANGE / 2.0);
+        if (Math.abs(yaw) > maxYaw + 0.5f || Math.abs(pitch) > maxPitch + 0.5f) {
+            ClientView.rotate(player, Math.max(-maxYaw, Math.min(maxYaw, yaw)),
+                    Math.max(-maxPitch, Math.min(maxPitch, pitch)));
         }
     }
 
