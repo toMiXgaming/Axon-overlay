@@ -6,6 +6,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.metadata.MetadataValue;
 import org.bukkit.plugin.Plugin;
 
 import java.util.Map;
@@ -20,6 +22,15 @@ import java.util.concurrent.ConcurrentHashMap;
  * wylogowaniu i przy wyłączaniu pluginu.</p>
  */
 final class OverlayManager implements OverlayApi, Listener {
+
+    /**
+     * Znacznik „gracz ma otwarty pełny ekran”, wspólny dla wszystkich pluginów Axon.
+     *
+     * <p>AxonMap ma jeszcze własną sesję pełnego ekranu, więc menedżer nie widzi jej
+     * w {@link #sessions}. Oba pluginy ustawiają ten metadata na graczu przy otwarciu
+     * i zdejmują przy zamknięciu, dzięki czemu gracz nie otworzy mapy i warsztatu naraz.</p>
+     */
+    static final String BUSY_METADATA = "axonoverlay.busy";
 
     private final Plugin plugin;
     private final OverlayPackets packets;
@@ -62,7 +73,7 @@ final class OverlayManager implements OverlayApi, Listener {
         if (!packetEventsReady) {
             return null;
         }
-        if (sessions.containsKey(player.getUniqueId())) {
+        if (sessions.containsKey(player.getUniqueId()) || busyElsewhere(player)) {
             return null;
         }
         OverlayAvailability.Reason reason = OverlayAvailability.checkPlayer(player, false);
@@ -72,7 +83,16 @@ final class OverlayManager implements OverlayApi, Listener {
         OverlaySessionImpl session = new OverlaySessionImpl(plugin, player, spec);
         sessions.put(player.getUniqueId(), session);
         packets.register(session);
+        // Sesja może zamknąć się sama (wylogowanie w ticku, przycisk na ekranie) — wtedy też
+        // zwalniamy gracza, inaczej zostałby na zawsze „z otwartą nakładką”.
+        session.onClosed(() -> release(player, session));
+        player.setMetadata(BUSY_METADATA, new FixedMetadataValue(plugin, spec.id()));
         session.start();
+        if (!session.isOpen()) {
+            // Fotel się nie udał (inny plugin anulował spawn) — sprzątamy od razu.
+            close(player);
+            return null;
+        }
         return session;
     }
 
@@ -89,6 +109,7 @@ final class OverlayManager implements OverlayApi, Listener {
         OverlaySessionImpl session = sessions.remove(player.getUniqueId());
         if (session != null) {
             packets.unregister(player.getUniqueId());
+            player.removeMetadata(BUSY_METADATA, plugin);
             session.close();
         }
     }
@@ -99,6 +120,9 @@ final class OverlayManager implements OverlayApi, Listener {
             Player player = Bukkit.getPlayer(id);
             OverlaySessionImpl session = sessions.remove(id);
             packets.unregister(id);
+            if (player != null) {
+                player.removeMetadata(BUSY_METADATA, plugin);
+            }
             if (session != null) {
                 session.close();
             }
@@ -110,7 +134,25 @@ final class OverlayManager implements OverlayApi, Listener {
         if (!packetEventsReady) {
             return OverlayAvailability.Reason.NO_PACKET_EVENTS;
         }
-        return OverlayAvailability.checkPlayer(player, sessions.containsKey(player.getUniqueId()));
+        return OverlayAvailability.checkPlayer(player,
+                sessions.containsKey(player.getUniqueId()) || busyElsewhere(player));
+    }
+
+    private void release(Player player, OverlaySessionImpl session) {
+        if (sessions.remove(player.getUniqueId(), session)) {
+            packets.unregister(player.getUniqueId());
+        }
+        player.removeMetadata(BUSY_METADATA, plugin);
+    }
+
+    /** Czy inny plugin (np. AxonMap) trzyma gracza na swoim pełnym ekranie. */
+    private boolean busyElsewhere(Player player) {
+        for (MetadataValue value : player.getMetadata(BUSY_METADATA)) {
+            if (value.getOwningPlugin() != plugin) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override

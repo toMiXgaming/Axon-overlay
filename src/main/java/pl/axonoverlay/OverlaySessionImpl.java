@@ -48,6 +48,8 @@ final class OverlaySessionImpl implements OverlaySession {
     private final List<ItemStack> mapItems = new ArrayList<>(OverlayLayout.TILES);
 
     private ArmorStand seat;
+    private Runnable onClosed = () -> {
+    };
     private InputListener listener = new InputListener() {
     };
     private volatile boolean open = true;
@@ -111,6 +113,11 @@ final class OverlaySessionImpl implements OverlaySession {
             }
             mapItems.add(item);
         }
+    }
+
+    /** Menedżer podpina tu sprzątanie, żeby zamknięcie z dowolnego miejsca zwalniało gracza. */
+    void onClosed(Runnable callback) {
+        this.onClosed = callback;
     }
 
     /** Bufor pikseli widziany przez renderer mapy. */
@@ -340,6 +347,7 @@ final class OverlaySessionImpl implements OverlaySession {
             return;
         }
         open = false;
+        onClosed.run();
         if (taskId != -1) {
             Bukkit.getScheduler().cancelTask(taskId);
             taskId = -1;
