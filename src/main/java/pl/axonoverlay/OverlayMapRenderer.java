@@ -16,6 +16,12 @@ import org.jetbrains.annotations.NotNull;
  */
 final class OverlayMapRenderer extends MapRenderer {
 
+    /** Kolory znacznika kafla — te same co w AxonMap, bo shader jest wspólny. */
+    @SuppressWarnings("deprecation")
+    private static final byte MARKER_A = org.bukkit.map.MapPalette.matchColor(255, 255, 255);
+    @SuppressWarnings("deprecation")
+    private static final byte MARKER_B = org.bukkit.map.MapPalette.matchColor(0, 0, 0);
+
     private final OverlaySessionImpl session;
     private final int tile;
 
@@ -39,6 +45,25 @@ final class OverlayMapRenderer extends MapRenderer {
             for (int x = 0; x < OverlayLayout.TILE; x++) {
                 canvas.setPixel(x, y, pixels[row + x]);
             }
+        }
+        writeMarker(canvas, tile);
+    }
+
+    /**
+     * Znacznik, po którym shader rozpoznaje kafel i rozciąga go na pełny ekran.
+     *
+     * <p>Ten sam układ co w AxonMap: pierwszy wiersz to 8 pikseli na przemian
+     * biały/czarny i 16 pikseli z numerem kafla (tyle białych, ile wynosi numer),
+     * ostatni wiersz znowu 8 pikseli na przemian. Shader ukrywa te piksele.
+     * Bez znacznika ramki są zwykłymi mapami zawieszonymi wokół gracza.</p>
+     */
+    static void writeMarker(MapCanvas canvas, int tile) {
+        for (int x = 0; x < 8; x++) {
+            canvas.setPixel(x, 0, x % 2 == 0 ? MARKER_A : MARKER_B);
+            canvas.setPixel(x, OverlayLayout.TILE - 1, x % 2 == 0 ? MARKER_A : MARKER_B);
+        }
+        for (int x = 0; x < 16; x++) {
+            canvas.setPixel(8 + x, 0, x < tile ? MARKER_A : MARKER_B);
         }
     }
 }
