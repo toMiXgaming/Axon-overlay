@@ -156,6 +156,9 @@ final class OverlaySessionImpl implements OverlaySession {
         Location seatLocation = origin.clone();
         seatLocation.setYaw(0f);
         seatLocation.setPitch(0f);
+        // Shader liczy kursor od yaw 0 / pitch 0, więc obracamy gracza przed wsadzeniem
+        // na fotel — pasażera nie da się już teleportować (Paper odrzuca teleport).
+        player.teleport(seatLocation);
         seat = world.spawn(seatLocation, ArmorStand.class, stand -> {
             stand.setVisible(false);
             stand.setMarker(true);
@@ -174,9 +177,9 @@ final class OverlaySessionImpl implements OverlaySession {
                 seat.remove();
             }
             open = false;
+            player.teleport(origin);
             return;
         }
-        player.teleport(seatLocation);
         if (spec.hideHud()) {
             ClientView.hideHand(player);
             ClientView.sendTime(player);
