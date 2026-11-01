@@ -65,9 +65,16 @@ final class ClientView {
                 new WrapperPlayServerTimeUpdate(player.getWorld().getGameTime(), player.getPlayerTime(), ticking));
     }
 
-    /** Czas gry z tą samą liczbą dni, którego reszta mówi shaderom, że mapa jest otwarta. */
+    /**
+     * Czas gry z tą samą liczbą dni, którego reszta mówi shaderom, że mapa jest otwarta.
+     *
+     * <p>Do reszty dodajemy czas serwera modulo {@link OverlayLayout#CLOCK_PERIOD}, więc zegar klienta
+     * (uniform GameTime z częścią ticka) chodzi płynnie zgodnie z serwerem i zawija się co 40 ticków.
+     * Shader używa go do animacji i do ruchu sprite'ów między pakietami.</p>
+     */
     static long mapOpenTime(long gameTime) {
-        return gameTime - Math.floorMod(gameTime, 24000L) + OverlayLayout.HUD_TIME + 5;
+        return gameTime - Math.floorMod(gameTime, 24000L) + OverlayLayout.HUD_TIME
+                + Math.floorMod(gameTime, (long) OverlayLayout.CLOCK_PERIOD);
     }
 
     /**

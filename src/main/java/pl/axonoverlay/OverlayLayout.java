@@ -34,6 +34,13 @@ public final class OverlayLayout {
     public static final long HUD_TIME = 12000;
     public static final long HUD_TIME_WINDOW = 60;
 
+    /**
+     * Okres zegara shadera w tickach: reszta czasu gry w oknie HUD to {@code HUD_TIME + (czas serwera % 40)}.
+     * Musi być mniejszy niż {@link #HUD_TIME_WINDOW} z zapasem na ticki liczone przez klienta między pakietami
+     * i zgadzać się z AXON_CLOCK_PERIOD w shaderze.
+     */
+    public static final int CLOCK_PERIOD = 40;
+
     private OverlayLayout() {
     }
 }
