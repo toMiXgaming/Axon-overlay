@@ -7,9 +7,10 @@ package pl.axonoverlay;
  * Domyślne implementacje nic nie robią, więc nakładka nadpisuje tylko te, które
  * jej potrzebują.</p>
  *
- * <p>Kursor jest podawany w pikselach płótna: {@code (0,0)} to lewy górny róg,
- * {@code (WIDTH-1, HEIGHT-1)} prawy dolny. Wartości są już przycięte do obszaru
- * płótna, więc implementacja nie musi sprawdzać granic.</p>
+ * <p>Kursor jest podawany w pikselach logicznych 640×384 ({@link OverlayLayout#WIDTH} ×
+ * {@link OverlayLayout#HEIGHT}): {@code (0,0)} to lewy górny róg, {@code (WIDTH, HEIGHT)} prawy dolny.
+ * Przy gęstości 2 płótno ma 1280×768 pikseli, a kursor nadal jest w pikselach logicznych —
+ * nakładka mnoży go przez {@link OverlayCanvas#density()}.</p>
  */
 public interface InputListener {
 

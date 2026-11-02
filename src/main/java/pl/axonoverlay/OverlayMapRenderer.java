@@ -35,54 +35,59 @@ final class OverlayMapRenderer extends MapRenderer {
     @SuppressWarnings("deprecation")
     public void render(@NotNull MapView map, @NotNull MapCanvas canvas, @NotNull Player player) {
         byte[] pixels = session.pixels();
-        if (pixels == null || pixels.length < OverlayLayout.WIDTH * OverlayLayout.HEIGHT) {
+        OverlayGrid grid = session.grid();
+        if (pixels == null || pixels.length < grid.width() * grid.height()) {
             return;
         }
-        int offsetX = (tile % OverlayLayout.COLS) * OverlayLayout.TILE;
-        int offsetY = (tile / OverlayLayout.COLS) * OverlayLayout.TILE;
-        for (int y = 0; y < OverlayLayout.TILE; y++) {
-            int row = (offsetY + y) * OverlayLayout.WIDTH + offsetX;
-            for (int x = 0; x < OverlayLayout.TILE; x++) {
-                canvas.setPixel(x, y, pixels[row + x]);
+        byte[] view = tileView(pixels, tile, grid);
+        int size = OverlayLayout.TILE;
+        for (int y = 0; y < size; y++) {
+            for (int x = 0; x < size; x++) {
+                canvas.setPixel(x, y, view[y * size + x]);
             }
         }
-        writeMarker(canvas, tile);
+    }
+
+    /** Kafel siatki 5×3 tak, jak widzi go klient (zgodność ze starszym kodem i testami). */
+    static byte[] tileView(byte[] pixels, int tile) {
+        return tileView(pixels, tile, OverlayGrid.STANDARD);
     }
 
     /**
-     * Znacznik, po którym shader rozpoznaje kafel i rozciąga go na pełny ekran.
+     * Kafel tak, jak widzi go klient: piksele sesji ze znacznikiem (do wysyłania samych zmian).
      *
-     * <p>Ten sam układ co w AxonMap: pierwszy wiersz to 8 pikseli na przemian
-     * biały/czarny i 16 pikseli z numerem kafla (tyle białych, ile wynosi numer),
-     * ostatni wiersz znowu 8 pikseli na przemian. Shader ukrywa te piksele.
-     * Bez znacznika ramki są zwykłymi mapami zawieszonymi wokół gracza.</p>
+     * <p>Znacznik, po którym shader rozpoznaje kafel i rozciąga go na pełny ekran. Siatka 5×3 ma ten
+     * sam układ co w AxonMap: pierwszy wiersz to 8 pikseli na przemian biały/czarny i 16 pikseli
+     * z numerem kafla (tyle białych, ile wynosi numer), ostatni wiersz znowu 8 pikseli na przemian.
+     * Siatka 10×6 (gęstość 2) ma w ostatnim wierszu odwrócony wzór (czarny/biały), w pikselach 8–23
+     * pierwszego wiersza resztę z dzielenia numeru przez 16, a w pikselach 24–31 numer / 16.
+     * Shader ukrywa te piksele. Bez znacznika ramki są zwykłymi mapami zawieszonymi wokół gracza.</p>
      */
-    /** Kafel tak, jak widzi go klient: piksele sesji ze znacznikiem (do wysyłania samych zmian). */
-    static byte[] tileView(byte[] pixels, int tile) {
+    static byte[] tileView(byte[] pixels, int tile, OverlayGrid grid) {
         int size = OverlayLayout.TILE;
+        int width = grid.width();
         byte[] view = new byte[size * size];
-        int offsetX = (tile % OverlayLayout.COLS) * size;
-        int offsetY = (tile / OverlayLayout.COLS) * size;
+        int offsetX = (tile % grid.cols()) * size;
+        int offsetY = (tile / grid.cols()) * size;
         for (int y = 0; y < size; y++) {
-            System.arraycopy(pixels, (offsetY + y) * OverlayLayout.WIDTH + offsetX, view, y * size, size);
+            System.arraycopy(pixels, (offsetY + y) * width + offsetX, view, y * size, size);
         }
+        boolean sharp = grid.density() > 1;
         for (int x = 0; x < 8; x++) {
-            view[x] = x % 2 == 0 ? MARKER_A : MARKER_B;
-            view[(size - 1) * size + x] = x % 2 == 0 ? MARKER_A : MARKER_B;
+            boolean even = x % 2 == 0;
+            view[x] = even ? MARKER_A : MARKER_B;
+            view[(size - 1) * size + x] = even != sharp ? MARKER_A : MARKER_B;
         }
+        int low = sharp ? tile % 16 : tile;
         for (int x = 0; x < 16; x++) {
-            view[8 + x] = x < tile ? MARKER_A : MARKER_B;
+            view[8 + x] = x < low ? MARKER_A : MARKER_B;
+        }
+        if (sharp) {
+            int high = tile / 16;
+            for (int x = 0; x < 8; x++) {
+                view[24 + x] = x < high ? MARKER_A : MARKER_B;
+            }
         }
         return view;
-    }
-
-    static void writeMarker(MapCanvas canvas, int tile) {
-        for (int x = 0; x < 8; x++) {
-            canvas.setPixel(x, 0, x % 2 == 0 ? MARKER_A : MARKER_B);
-            canvas.setPixel(x, OverlayLayout.TILE - 1, x % 2 == 0 ? MARKER_A : MARKER_B);
-        }
-        for (int x = 0; x < 16; x++) {
-            canvas.setPixel(8 + x, 0, x < tile ? MARKER_A : MARKER_B);
-        }
     }
 }

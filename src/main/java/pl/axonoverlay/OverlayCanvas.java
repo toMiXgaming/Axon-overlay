@@ -14,21 +14,36 @@ package pl.axonoverlay;
  */
 public final class OverlayCanvas {
 
-    private final byte[] pixels = new byte[OverlayLayout.WIDTH * OverlayLayout.HEIGHT];
+    private final OverlayGrid grid;
+    private final int width;
+    private final int height;
+    private final byte[] pixels;
     private final DirtyTiles dirty;
 
     OverlayCanvas(DirtyTiles dirty) {
         this.dirty = dirty;
+        this.grid = dirty.grid();
+        this.width = grid.width();
+        this.height = grid.height();
+        this.pixels = new byte[width * height];
     }
 
-    /** Szerokość płótna w pikselach. */
+    /** Szerokość płótna w pikselach (640 albo 1280 przy gęstości 2). */
     public int width() {
-        return OverlayLayout.WIDTH;
+        return width;
     }
 
-    /** Wysokość płótna w pikselach. */
+    /** Wysokość płótna w pikselach (384 albo 768 przy gęstości 2). */
     public int height() {
-        return OverlayLayout.HEIGHT;
+        return height;
+    }
+
+    /**
+     * Pikseli płótna na piksel logiczny (1 albo 2). Kursor i kliknięcia są w pikselach logicznych
+     * 640×384, więc nakładka rysująca w gęstości 2 mnoży współrzędne przez tę wartość.
+     */
+    public int density() {
+        return grid.density();
     }
 
     /** Surowy bufor pikseli — zapis bezpośredni, bez kopii. */
@@ -44,19 +59,19 @@ public final class OverlayCanvas {
 
     /** Ustawia pojedynczy piksel i oznacza jego kafel jako brudny. */
     public void set(int x, int y, byte color) {
-        if (x < 0 || y < 0 || x >= OverlayLayout.WIDTH || y >= OverlayLayout.HEIGHT) {
+        if (x < 0 || y < 0 || x >= width || y >= height) {
             return;
         }
-        pixels[y * OverlayLayout.WIDTH + x] = color;
+        pixels[y * width + x] = color;
         dirty.markRect(x, y, 1, 1);
     }
 
     /** Odczytuje piksel; poza płótnem zwraca 0. */
     public byte get(int x, int y) {
-        if (x < 0 || y < 0 || x >= OverlayLayout.WIDTH || y >= OverlayLayout.HEIGHT) {
+        if (x < 0 || y < 0 || x >= width || y >= height) {
             return 0;
         }
-        return pixels[y * OverlayLayout.WIDTH + x];
+        return pixels[y * width + x];
     }
 
     /** Wypełnia prostokąt kolorem i oznacza pokryte kafle jako brudne. */
@@ -66,13 +81,13 @@ public final class OverlayCanvas {
         }
         int left = Math.max(0, x);
         int top = Math.max(0, y);
-        int right = Math.min(OverlayLayout.WIDTH, x + width);
-        int bottom = Math.min(OverlayLayout.HEIGHT, y + height);
+        int right = Math.min(this.width, x + width);
+        int bottom = Math.min(this.height, y + height);
         if (left >= right || top >= bottom) {
             return;
         }
         for (int py = top; py < bottom; py++) {
-            int rowStart = py * OverlayLayout.WIDTH;
+            int rowStart = py * this.width;
             java.util.Arrays.fill(pixels, rowStart + left, rowStart + right, color);
         }
         dirty.markRect(left, top, right - left, bottom - top);
