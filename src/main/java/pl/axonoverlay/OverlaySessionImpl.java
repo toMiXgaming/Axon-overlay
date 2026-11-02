@@ -227,10 +227,14 @@ final class OverlaySessionImpl implements OverlaySession {
     }
 
     private void sendMaps() {
-        for (MapView view : views) {
-            player.sendMap(view);
+        for (int tile = 0; tile < views.size(); tile++) {
+            player.sendMap(views.get(tile));
+            shown[tile] = OverlayMapRenderer.tileView(canvas.pixels(), tile);
         }
     }
+
+    /** Co klient ma na każdym kaflu (piksele ze znacznikiem) — od tego liczymy wysyłane zmiany. */
+    private final byte[][] shown = new byte[OverlayLayout.TILES][];
 
     private void tick() {
         if (!open || !player.isOnline()) {
@@ -305,8 +309,49 @@ final class OverlaySessionImpl implements OverlaySession {
             if (tile < 0 || tile >= views.size()) {
                 continue;
             }
-            player.sendMap(views.get(tile));
-            dirty.addBytes(OverlayLayout.TILE * OverlayLayout.TILE);
+            sendTile(tile);
+        }
+    }
+
+    /**
+     * Wysyła kafel: tylko zmienione pasy wierszy bezpośrednim pakietem mapy, a gdy zmieniło się
+     * dużo albo klient nie ma jeszcze kafla — cały kafel przez Bukkita (z rendererem i znacznikiem).
+     */
+    private void sendTile(int tile) {
+        int size = OverlayLayout.TILE;
+        byte[] now = OverlayMapRenderer.tileView(canvas.pixels(), tile);
+        byte[] before = shown[tile];
+        if (before != null) {
+            List<int[]> rects = TilePatches.changed(before, now, size);
+            if (rects.isEmpty()) {
+                return;
+            }
+            if (TilePatches.area(rects) < size * size * 0.6 && sendPatches(tile, now, rects)) {
+                shown[tile] = now;
+                dirty.addBytes(TilePatches.area(rects));
+                return;
+            }
+        }
+        player.sendMap(views.get(tile));
+        shown[tile] = now;
+        dirty.addBytes(size * size);
+    }
+
+    private boolean sendPatches(int tile, byte[] view, List<int[]> rects) {
+        int size = OverlayLayout.TILE;
+        try {
+            for (int[] r : rects) {
+                byte[] data = new byte[r[2] * r[3]];
+                for (int y = 0; y < r[3]; y++) {
+                    System.arraycopy(view, (r[1] + y) * size + r[0], data, y * r[2], r[2]);
+                }
+                var packet = new com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerMapData(
+                        views.get(tile).getId(), (byte) 0, false, false, null, r[2], r[3], r[0], r[1], data);
+                com.github.retrooper.packetevents.PacketEvents.getAPI().getPlayerManager().sendPacket(player, packet);
+            }
+            return true;
+        } catch (Throwable error) {
+            return false;
         }
     }
 
