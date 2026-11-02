@@ -15,6 +15,7 @@ public final class OverlaySpec {
     private final int initialScale;
     private final int tilesPerSecond;
     private final boolean restorePosition;
+    private final int density;
 
     private OverlaySpec(Builder builder) {
         this.id = builder.id;
@@ -23,6 +24,7 @@ public final class OverlaySpec {
         this.initialScale = builder.initialScale;
         this.tilesPerSecond = builder.tilesPerSecond;
         this.restorePosition = builder.restorePosition;
+        this.density = builder.density;
     }
 
     /** Nowy builder z domyślnymi wartościami: ruch zablokowany, HUD ukryty, zoom 1. */
@@ -60,6 +62,19 @@ public final class OverlaySpec {
         return restorePosition;
     }
 
+    /**
+     * Gęstość obrazu: 1 = 5×3 mapy (640×384 px), 2 = 10×6 map (1280×768 px, ostry tekst).
+     * Kursor i kliknięcia zawsze są w pikselach logicznych 640×384.
+     */
+    public int density() {
+        return density;
+    }
+
+    /** Siatka kafli wynikająca z {@link #density()}. */
+    public OverlayGrid grid() {
+        return OverlayGrid.of(density);
+    }
+
     /** Budowniczy specyfikacji. */
     public static final class Builder {
 
@@ -69,6 +84,7 @@ public final class OverlaySpec {
         private int initialScale = 1;
         private int tilesPerSecond = DirtyTiles.DEFAULT_TILES_PER_SECOND;
         private boolean restorePosition = true;
+        private int density = 1;
 
         private Builder(String id) {
             if (id == null || id.isBlank()) {
@@ -99,6 +115,16 @@ public final class OverlaySpec {
 
         public Builder restorePosition(boolean value) {
             this.restorePosition = value;
+            return this;
+        }
+
+        /**
+         * Gęstość obrazu (1 albo 2). Gęstość 2 wymaga paczki zasobów z shaderem, który zna siatkę 10×6.
+         * Limit {@link #tilesPerSecond(int)} jest podawany jak dla gęstości 1 — sesja mnoży go przez
+         * liczbę kafli na piksel logiczny (4).
+         */
+        public Builder density(int value) {
+            this.density = Math.max(1, Math.min(OverlayGrid.MAX_DENSITY, value));
             return this;
         }
 

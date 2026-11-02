@@ -62,6 +62,15 @@ canvas.markAllDirty();
 | `CURSOR_YAW_RANGE` | 180° |
 | `CURSOR_PITCH_RANGE` | 100° |
 
+## Ostry ekran (gęstość 2)
+
+`OverlaySpec.builder(id).density(2)` otwiera ekran z 10×6 map zamiast 5×3. Płótno ma wtedy
+1280×768 px (`canvas.width()`, `canvas.height()`, `canvas.density()`), więc tekst i krawędzie
+mają 4× więcej pikseli. Kursor i kliknięcia nadal są w pikselach logicznych 640×384, a limit
+`tilesPerSecond` podaje się jak dla 5×3 (sesja sama mnoży go przez 4). Wymaga paczki zasobów
+z shaderem, który zna siatkę 10×6 (QualityArmory-texturepack). Domyślnie gęstość to 1,
+więc AxonMap i starsze nakładki działają bez zmian.
+
 ## Budowanie
 
 ```

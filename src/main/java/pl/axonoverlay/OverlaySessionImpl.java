@@ -41,11 +41,12 @@ final class OverlaySessionImpl implements OverlaySession {
     private final OverlayCanvas canvas;
     private final DirtyTiles dirty;
     private final OverlayPackets.State packetState;
-    private final int[] entityIds = new int[OverlayLayout.TILES * 2 + 4];
+    private final OverlayGrid grid;
+    private final int[] entityIds;
     private final Location origin;
     private final String worldName;
-    private final List<MapView> views = new ArrayList<>(OverlayLayout.TILES);
-    private final List<ItemStack> mapItems = new ArrayList<>(OverlayLayout.TILES);
+    private final List<MapView> views;
+    private final List<ItemStack> mapItems;
 
     private ArmorStand seat;
     private Runnable onClosed = () -> {
@@ -72,7 +73,14 @@ final class OverlaySessionImpl implements OverlaySession {
         this.player = player;
         this.playerId = player.getUniqueId();
         this.spec = spec;
-        this.dirty = new DirtyTiles(spec.tilesPerSecond());
+        this.grid = spec.grid();
+        this.entityIds = new int[grid.tiles() * 2 + 4];
+        this.views = new ArrayList<>(grid.tiles());
+        this.mapItems = new ArrayList<>(grid.tiles());
+        this.shown = new byte[grid.tiles()][];
+        // Limit ze specyfikacji jest podany dla siatki 5×3; przy gęstości 2 ten sam obraz to 4× więcej kafli.
+        int density = grid.density();
+        this.dirty = new DirtyTiles(spec.tilesPerSecond() * density * density, grid);
         this.canvas = new OverlayCanvas(dirty);
         this.origin = player.getLocation().clone();
         this.worldName = player.getWorld().getName();
@@ -95,7 +103,7 @@ final class OverlaySessionImpl implements OverlaySession {
      */
     private void prepareMaps() {
         World world = player.getWorld();
-        for (int tile = 0; tile < OverlayLayout.TILES; tile++) {
+        for (int tile = 0; tile < grid.tiles(); tile++) {
             MapView view = Bukkit.createMap(world);
             for (var renderer : new ArrayList<>(view.getRenderers())) {
                 view.removeRenderer(renderer);
@@ -118,6 +126,11 @@ final class OverlaySessionImpl implements OverlaySession {
     /** Menedżer podpina tu sprzątanie, żeby zamknięcie z dowolnego miejsca zwalniało gracza. */
     void onClosed(Runnable callback) {
         this.onClosed = callback;
+    }
+
+    /** Siatka kafli tej sesji (5×3 albo 10×6). */
+    OverlayGrid grid() {
+        return grid;
     }
 
     /** Bufor pikseli widziany przez renderer mapy. */
@@ -210,7 +223,7 @@ final class OverlaySessionImpl implements OverlaySession {
         int z = eye.getBlockZ();
         int index = 0;
         // Dwie ramki na kafel: północ i południe, żeby obraz był widoczny z obu stron.
-        for (int tile = 0; tile < OverlayLayout.TILES; tile++) {
+        for (int tile = 0; tile < grid.tiles(); tile++) {
             FakeFrames.spawn(player, entityIds[index++], x, y, z, FakeFrames.FACING_NORTH, mapItems.get(tile));
             FakeFrames.spawn(player, entityIds[index++], x, y, z, FakeFrames.FACING_SOUTH, mapItems.get(tile));
         }
@@ -229,12 +242,12 @@ final class OverlaySessionImpl implements OverlaySession {
     private void sendMaps() {
         for (int tile = 0; tile < views.size(); tile++) {
             player.sendMap(views.get(tile));
-            shown[tile] = OverlayMapRenderer.tileView(canvas.pixels(), tile);
+            shown[tile] = OverlayMapRenderer.tileView(canvas.pixels(), tile, grid);
         }
     }
 
     /** Co klient ma na każdym kaflu (piksele ze znacznikiem) — od tego liczymy wysyłane zmiany. */
-    private final byte[][] shown = new byte[OverlayLayout.TILES][];
+    private final byte[][] shown;
 
     private void tick() {
         if (!open || !player.isOnline()) {
@@ -319,7 +332,7 @@ final class OverlaySessionImpl implements OverlaySession {
      */
     private void sendTile(int tile) {
         int size = OverlayLayout.TILE;
-        byte[] now = OverlayMapRenderer.tileView(canvas.pixels(), tile);
+        byte[] now = OverlayMapRenderer.tileView(canvas.pixels(), tile, grid);
         byte[] before = shown[tile];
         if (before != null) {
             List<int[]> rects = TilePatches.changed(before, now, size);

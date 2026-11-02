@@ -20,13 +20,16 @@ public final class DirtyTiles {
     /** Domyślny limit kafli wysyłanych na sekundę (specyfikacja etapu 5). */
     public static final int DEFAULT_TILES_PER_SECOND = 10;
 
+    /** Siatka kafli tej sesji. */
+    private final OverlayGrid grid;
+
     /** Ile kafli mieści się w jednym wierszu płótna. */
-    private static final int COLS = OverlayLayout.COLS;
+    private final int cols;
 
     /** Łączna liczba kafli. */
-    private static final int TOTAL = OverlayLayout.TILES;
+    private final int total;
 
-    private final BitSet dirty = new BitSet(TOTAL);
+    private final BitSet dirty;
     private final int tilesPerSecond;
 
     private long windowStartNanos;
@@ -44,13 +47,25 @@ public final class DirtyTiles {
      *                       są podnoszone do 1, żeby sesja nigdy nie zawisła bez odświeżania
      */
     public DirtyTiles(int tilesPerSecond) {
+        this(tilesPerSecond, OverlayGrid.STANDARD);
+    }
+
+    /**
+     * @param tilesPerSecond limit kafli na sekundę (już przeliczony dla tej siatki)
+     * @param grid           siatka kafli sesji
+     */
+    public DirtyTiles(int tilesPerSecond, OverlayGrid grid) {
+        this.grid = grid == null ? OverlayGrid.STANDARD : grid;
+        this.cols = this.grid.cols();
+        this.total = this.grid.tiles();
+        this.dirty = new BitSet(total);
         this.tilesPerSecond = Math.max(1, tilesPerSecond);
         this.windowStartNanos = System.nanoTime();
     }
 
     /** Oznacza wszystkie kafle jako brudne — używane przy pierwszym otwarciu ekranu. */
     public void markAll() {
-        dirty.set(0, TOTAL);
+        dirty.set(0, total);
     }
 
     /**
@@ -70,8 +85,8 @@ public final class DirtyTiles {
         }
         int left = Math.max(0, x);
         int top = Math.max(0, y);
-        int right = Math.min(OverlayLayout.WIDTH, x + width);
-        int bottom = Math.min(OverlayLayout.HEIGHT, y + height);
+        int right = Math.min(grid.width(), x + width);
+        int bottom = Math.min(grid.height(), y + height);
         if (left >= right || top >= bottom) {
             return;
         }
@@ -82,14 +97,14 @@ public final class DirtyTiles {
         int lastRow = (bottom - 1) / OverlayLayout.TILE;
         for (int row = firstRow; row <= lastRow; row++) {
             for (int col = firstCol; col <= lastCol; col++) {
-                dirty.set(row * COLS + col);
+                dirty.set(row * cols + col);
             }
         }
     }
 
     /** Oznacza pojedynczy kafel indeksem 0..{@code TILES-1}. */
     public void markTile(int index) {
-        if (index >= 0 && index < TOTAL) {
+        if (index >= 0 && index < total) {
             dirty.set(index);
         }
     }
@@ -173,6 +188,11 @@ public final class DirtyTiles {
         tilesSent = 0;
         sentInWindow = 0;
         windowStartNanos = System.nanoTime();
+    }
+
+    /** Siatka kafli, którą śledzi tracker. */
+    public OverlayGrid grid() {
+        return grid;
     }
 
     /** Limit kafli na sekundę, z którym tracker został utworzony. */
