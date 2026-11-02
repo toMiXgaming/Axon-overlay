@@ -57,6 +57,25 @@ final class OverlayMapRenderer extends MapRenderer {
      * ostatni wiersz znowu 8 pikseli na przemian. Shader ukrywa te piksele.
      * Bez znacznika ramki są zwykłymi mapami zawieszonymi wokół gracza.</p>
      */
+    /** Kafel tak, jak widzi go klient: piksele sesji ze znacznikiem (do wysyłania samych zmian). */
+    static byte[] tileView(byte[] pixels, int tile) {
+        int size = OverlayLayout.TILE;
+        byte[] view = new byte[size * size];
+        int offsetX = (tile % OverlayLayout.COLS) * size;
+        int offsetY = (tile / OverlayLayout.COLS) * size;
+        for (int y = 0; y < size; y++) {
+            System.arraycopy(pixels, (offsetY + y) * OverlayLayout.WIDTH + offsetX, view, y * size, size);
+        }
+        for (int x = 0; x < 8; x++) {
+            view[x] = x % 2 == 0 ? MARKER_A : MARKER_B;
+            view[(size - 1) * size + x] = x % 2 == 0 ? MARKER_A : MARKER_B;
+        }
+        for (int x = 0; x < 16; x++) {
+            view[8 + x] = x < tile ? MARKER_A : MARKER_B;
+        }
+        return view;
+    }
+
     static void writeMarker(MapCanvas canvas, int tile) {
         for (int x = 0; x < 8; x++) {
             canvas.setPixel(x, 0, x % 2 == 0 ? MARKER_A : MARKER_B);
