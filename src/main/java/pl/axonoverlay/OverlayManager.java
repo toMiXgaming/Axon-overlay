@@ -62,7 +62,7 @@ final class OverlayManager implements OverlayApi, Listener {
         if (!packetEventsReady) {
             return null;
         }
-        if (sessions.containsKey(player.getUniqueId())) {
+        if (live(player.getUniqueId()) != null) {
             return null;
         }
         OverlayAvailability.Reason reason = OverlayAvailability.checkPlayer(player, false);
@@ -78,7 +78,7 @@ final class OverlayManager implements OverlayApi, Listener {
 
     @Override
     public boolean isOpen(Player player) {
-        return player != null && sessions.containsKey(player.getUniqueId());
+        return player != null && live(player.getUniqueId()) != null;
     }
 
     @Override
@@ -110,7 +110,7 @@ final class OverlayManager implements OverlayApi, Listener {
         if (!packetEventsReady) {
             return OverlayAvailability.Reason.NO_PACKET_EVENTS;
         }
-        return OverlayAvailability.checkPlayer(player, sessions.containsKey(player.getUniqueId()));
+        return OverlayAvailability.checkPlayer(player, live(player.getUniqueId()) != null);
     }
 
     @Override
@@ -120,7 +120,24 @@ final class OverlayManager implements OverlayApi, Listener {
 
     /** Sesja gracza albo {@code null}. */
     OverlaySessionImpl session(Player player) {
-        return player == null ? null : sessions.get(player.getUniqueId());
+        return player == null ? null : live(player.getUniqueId());
+    }
+
+    /**
+     * Otwarta sesja gracza albo {@code null}. Sesję zamkniętą bez udziału menedżera (wtyczka woła
+     * {@code session.close()}, gracz zszedł z siedzenia, sesja zamknęła się sama) od razu zapominamy.
+     * Bez tego zostawała w mapie jako „już otwarta” i każde następne GUI gracza spadało do okna skrzyni
+     * aż do wyjścia z serwera.
+     */
+    private OverlaySessionImpl live(UUID id) {
+        OverlaySessionImpl session = sessions.get(id);
+        if (session != null && !session.isOpen()) {
+            if (sessions.remove(id, session)) {
+                packets.unregister(id);
+            }
+            return null;
+        }
+        return session;
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
