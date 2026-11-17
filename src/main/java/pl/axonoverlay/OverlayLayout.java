@@ -22,9 +22,13 @@ public final class OverlayLayout {
      * Stopnie obrotu głowy, które przesuwają kursor przez cały ekran. Widok gracza jest ustawiany
      * na yaw 0 / pitch 0 przy otwarciu. Musi zgadzać się z AXON_YAW_RANGE / AXON_PITCH_RANGE
      * w shaderze.
+     *
+     * <p>Świat przy otwartym oknie stoi w miejscu (shadery paczki rysują go z yaw 0 / pitch 0),
+     * a gra ucina bloki poza prawdziwym kierunkiem kamery. Zakres jest więc mały: przy poszerzonym
+     * polu widzenia (ClientView.WIDE_FOV_WALK_SPEED) obrót o pół zakresu mieści się w zapasie.</p>
      */
-    public static final double CURSOR_YAW_RANGE = 180.0;
-    public static final double CURSOR_PITCH_RANGE = 100.0;
+    public static final double CURSOR_YAW_RANGE = 30.0;
+    public static final double CURSOR_PITCH_RANGE = 18.0;
 
     /**
      * Gdy ekran jest otwarty, klient dostaje czas gry, którego reszta z dzielenia przez 24000 leży

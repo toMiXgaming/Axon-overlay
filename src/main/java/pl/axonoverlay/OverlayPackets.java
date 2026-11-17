@@ -10,6 +10,7 @@ import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.InteractionHand;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityMetadata;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerAbilities;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSetPlayerInventory;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSetSlot;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerTimeUpdate;
@@ -172,7 +173,11 @@ final class OverlayPackets extends PacketListenerAbstract {
         if (!hidden) {
             return;
         }
-        if (event.getPacketType() == PacketType.Play.Server.ENTITY_METADATA) {
+        if (event.getPacketType() == PacketType.Play.Server.PLAYER_ABILITIES) {
+            WrapperPlayServerPlayerAbilities abilities = new WrapperPlayServerPlayerAbilities(event);
+            abilities.setFOVModifier(ClientView.WIDE_FOV_WALK_SPEED);
+            event.markForReEncode(true);
+        } else if (event.getPacketType() == PacketType.Play.Server.ENTITY_METADATA) {
             WrapperPlayServerEntityMetadata metadata = new WrapperPlayServerEntityMetadata(event);
             if (metadata.getEntityId() != state.playerEntityId) {
                 return;

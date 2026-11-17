@@ -43,6 +43,7 @@ final class ClientView {
     /** Ukrywa rękę i trzymane przedmioty; {@link OverlayPackets} utrzymuje to do {@link #show}. */
     static void hideHand(Player player) {
         sendFlags(player, (byte) (flags(player) | INVISIBLE));
+        sendAbilities(player);
         for (int slot = FIRST_HOTBAR_SLOT; slot <= OFF_HAND_SLOT; slot++) {
             PacketEvents.getAPI().getPlayerManager().sendPacket(player,
                     new WrapperPlayServerSetSlot(0, 0, slot, ItemStack.EMPTY));
@@ -53,6 +54,21 @@ final class ClientView {
     static void show(Player player) {
         sendFlags(player, flags(player));
         player.updateInventory();
+        sendAbilities(player);
+    }
+
+    /**
+     * Prędkość chodu w pakiecie umiejętności, przy której klient poszerza pole widzenia do
+     * maksimum (gra przycina mnożnik do 1,5). {@link OverlayPackets} podmienia ją przy otwartym
+     * oknie: shadery i tak rysują świat ze stałym polem widzenia, a szersze pole widzenia gry
+     * sprawia, że nie ucina ona bloków i mobów poza prawdziwym kierunkiem kamery.
+     */
+    static final float WIDE_FOV_WALK_SPEED = 0.001f;
+
+    /** Wysyła aktualne umiejętności gracza; {@link OverlayPackets} podmienia w nich pole widzenia. */
+    static void sendAbilities(Player player) {
+        // Bukkit wysyła pakiet umiejętności przy każdej zmianie prędkości lotu, także na tę samą.
+        player.setFlySpeed(player.getFlySpeed());
     }
 
     /**

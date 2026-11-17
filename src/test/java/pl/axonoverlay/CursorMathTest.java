@@ -75,7 +75,7 @@ class CursorMathTest {
     void clampYawKeepsInsideRange() {
         assertEquals(OverlayLayout.CURSOR_YAW_RANGE / 2, CursorMath.clampYaw(500), EPS);
         assertEquals(-OverlayLayout.CURSOR_YAW_RANGE / 2, CursorMath.clampYaw(-500), EPS);
-        assertEquals(45.0, CursorMath.clampYaw(45), EPS);
+        assertEquals(10.0, CursorMath.clampYaw(10), EPS);
     }
 
     @Test
