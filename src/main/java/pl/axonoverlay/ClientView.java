@@ -88,9 +88,20 @@ final class ClientView {
      * (uniform GameTime z częścią ticka) chodzi płynnie zgodnie z serwerem i zawija się co 40 ticków.
      * Shader używa go do animacji i do ruchu sprite'ów między pakietami.</p>
      */
-    static long mapOpenTime(long gameTime) {
+    static long mapOpenTime(long gameTime, boolean freeze) {
         return gameTime - Math.floorMod(gameTime, 24000L) + OverlayLayout.HUD_TIME
+                + (freeze ? 0 : OverlayLayout.NO_FREEZE_OFFSET)
                 + Math.floorMod(gameTime, (long) OverlayLayout.CLOCK_PERIOD);
+    }
+
+    /**
+     * Czy zamrażać świat temu graczowi. Tylko czysty klient rysuje bloki shaderami z paczki;
+     * Fabric/Forge/NeoForge (Sodium, Iris), Lunar czy Feather rysują je po swojemu, więc zamrożone
+     * byłyby tylko moby, a bloki dalej obracałyby się z kamerą.
+     */
+    static boolean canFreeze(Player player) {
+        String brand = player.getClientBrandName();
+        return brand == null || brand.equalsIgnoreCase("vanilla");
     }
 
     /**

@@ -34,9 +34,16 @@ public final class OverlayLayout {
      * Gdy ekran jest otwarty, klient dostaje czas gry, którego reszta z dzielenia przez 24000 leży
      * w [HUD_TIME, HUD_TIME + HUD_TIME_WINDOW). Shadery GUI widzą go w uniformie GameTime i chowają
      * pasek szybkiego wyboru, serca i celownik. Musi zgadzać się z AXON_HUD_TIME / AXON_HUD_WINDOW.
+     *
+     * <p>Początek okna ({@link #FREEZE_WINDOW} ticków) dodatkowo zamraża świat (AXON_FREEZE_WINDOW
+     * w axon_freeze.glsl). Od {@link #NO_FREEZE_OFFSET} to samo okno bez zamrażania: dostają je klienci
+     * z modami (Sodium rysuje bloki własnym shaderem, więc zamrożone byłyby tylko moby, a bloki nie).
+     * Przesunięcie jest wielokrotnością {@link #CLOCK_PERIOD}, więc zegar shadera ma tę samą fazę.</p>
      */
     public static final long HUD_TIME = 12000;
-    public static final long HUD_TIME_WINDOW = 60;
+    public static final long HUD_TIME_WINDOW = 140;
+    public static final long FREEZE_WINDOW = 60;
+    public static final long NO_FREEZE_OFFSET = 80;
 
     /**
      * Okres zegara shadera w tickach: reszta czasu gry w oknie HUD to {@code HUD_TIME + (czas serwera % 40)}.
