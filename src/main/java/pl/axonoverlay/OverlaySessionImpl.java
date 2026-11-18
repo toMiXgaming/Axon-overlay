@@ -232,6 +232,7 @@ final class OverlaySessionImpl implements OverlaySession {
         for (int i = 0; i < walls.length; i++) {
             FakeFrames.spawn(player, entityIds[index++], x, y, z, walls[i], mapItems.get(0));
         }
+        packetState.freeze = ClientView.canFreeze(player);
         packetState.handHidden = true;
         if (spec.hideHud()) {
             ClientView.hideHand(player);

@@ -57,6 +57,8 @@ final class OverlayPackets extends PacketListenerAbstract {
         final Set<Integer> frameIds = ConcurrentHashMap.newKeySet();
         final boolean hideHud;
         volatile boolean handHidden;
+        /** Czy zamrażać świat (czysty klient, patrz {@link ClientView#canFreeze}). */
+        volatile boolean freeze = true;
         volatile long lastClickNanos;
         volatile long lastRightClickNanos;
 
@@ -162,7 +164,7 @@ final class OverlayPackets extends PacketListenerAbstract {
             }
             WrapperPlayServerTimeUpdate time = new WrapperPlayServerTimeUpdate(event);
             long age = hidden
-                    ? ClientView.mapOpenTime(time.getWorldAge())
+                    ? ClientView.mapOpenTime(time.getWorldAge(), state.freeze)
                     : ClientView.outsideMapTime(time.getWorldAge());
             if (age != time.getWorldAge()) {
                 time.setWorldAge(age);
@@ -174,6 +176,11 @@ final class OverlayPackets extends PacketListenerAbstract {
             return;
         }
         if (event.getPacketType() == PacketType.Play.Server.PLAYER_ABILITIES) {
+            // Szersze pole widzenia jest potrzebne tylko przy zamrożonym świecie; inaczej gra
+            // rysowałaby niepotrzebnie więcej chunków.
+            if (!state.freeze) {
+                return;
+            }
             WrapperPlayServerPlayerAbilities abilities = new WrapperPlayServerPlayerAbilities(event);
             abilities.setFOVModifier(ClientView.WIDE_FOV_WALK_SPEED);
             event.markForReEncode(true);
