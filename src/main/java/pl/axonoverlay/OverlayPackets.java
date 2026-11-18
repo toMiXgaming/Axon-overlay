@@ -109,9 +109,9 @@ final class OverlayPackets extends PacketListenerAbstract {
         }
         if (event.getPacketType() == PacketType.Play.Client.INTERACT_ENTITY) {
             WrapperPlayClientInteractEntity interact = new WrapperPlayClientInteractEntity(event);
-            if (!state.isFrame(interact.getEntityId())) {
-                return;
-            }
+            // Każda encja pod celownikiem liczy się jak ramka: gracz siedzi przy stanowisku, więc celownik
+            // często trafia w jego hitbox (Interaction), NPC albo innego gracza. Wcześniej taki klik
+            // przechodził do świata, a machnięcie po nim zgłaszało LPM — PPM działał wtedy jak LPM.
             event.setCancelled(true);
             state.lastClickNanos = System.nanoTime();
             switch (interact.getAction()) {
