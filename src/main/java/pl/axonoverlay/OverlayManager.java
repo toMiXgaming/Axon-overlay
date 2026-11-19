@@ -166,6 +166,12 @@ final class OverlayManager implements OverlayApi, Listener {
         return player == null ? null : sessions.get(player.getUniqueId());
     }
 
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void scroll(org.bukkit.event.player.PlayerItemHeldEvent e) {
+        var session = session(e.getPlayer());
+        if (session != null && session.editorScroll(e.getNewSlot(), e.getPreviousSlot())) e.setCancelled(true);
+    }
+
     /** Zejście z fotela (Shift u klienta, inny plugin) zamyka ekran, jak w AxonMap. */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onDismount(EntityDismountEvent event) {

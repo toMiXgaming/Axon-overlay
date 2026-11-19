@@ -45,6 +45,36 @@ public final class AxonOverlayPlugin extends JavaPlugin {
         }
     }
 
+    /** Separate settings tabs enter the same editor, with only their own rectangle editable. */
+    public void editHud(org.bukkit.entity.Player p, int selected) {
+        if (selected < 0 || selected > 2 || !p.isOnline()) return;
+        int[][] boxes = {{475, 85, 156, 120}, {10,10,104,104}, {235,5,170,14}};
+        String[] names = {"AxonScoreboard","AxonMap","AxonMap"};
+        for (int i=0; i<boxes.length; i++) {
+            var source = getServer().getPluginManager().getPlugin(names[i]);
+            if (source == null || !source.isEnabled()) continue;
+            try {
+                boxes[i] = (int[])source.getClass().getMethod("hudBounds", org.bukkit.entity.Player.class, int.class).invoke(source,p,i);
+            } catch (ReflectiveOperationException ex) {
+                if (i == selected) { p.sendMessage("Zaktualizuj plugin " + names[i] + "."); return; }
+            }
+        }
+        var session = manager.open(p, OverlaySpec.builder("axon:hud_layout").density(1).build());
+        if (session == null) { p.sendMessage("Nie można teraz otworzyć edytora HUD."); return; }
+        new HudEditor(session, selected, boxes, bounds -> {
+            var source = getServer().getPluginManager().getPlugin(names[selected]);
+            if (source == null) return;
+            try {
+                source.getClass().getMethod("saveHudBounds", org.bukkit.entity.Player.class,int.class,int[].class)
+                        .invoke(source,p,selected,bounds);
+                p.sendActionBar(net.kyori.adventure.text.Component.text("Zapisano układ HUD."));
+            } catch (ReflectiveOperationException ex) {
+                getLogger().warning("Zapis HUD: " + ex);
+                p.sendMessage("Nie udało się zapisać układu HUD.");
+            }
+        });
+    }
+
     /** Instancja API; nigdy {@code null} po {@code onEnable}. */
     public OverlayApi api() {
         return manager;
