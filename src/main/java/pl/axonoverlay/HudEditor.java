@@ -8,6 +8,7 @@ import org.bukkit.map.MinecraftFont;
 final class HudEditor implements InputListener {
     private static final int W = 640, H = 384;
     private static final byte FRAME = 87, ACTIVE = 126, WHITE = 34, INK = 119;
+    private static final int SAVE_X = 372, SAVE_W = 60;
     private static final int RESET_X = 448, RESET_W = 174, TOOLBAR_H = 21;
     private static final Limits[] LIMITS = {
             new Limits(100, 420, 75, 290),
@@ -113,6 +114,10 @@ final class HudEditor implements InputListener {
         x = px; y = py;
         if (handle != 0) { move(); handle = 0; render(); return; }
         int toolbar = toolbarY();
+        if (x >= SAVE_X && x < SAVE_X + SAVE_W && y >= toolbar && y < toolbar + TOOLBAR_H) {
+            commit();
+            return;
+        }
         if (x >= RESET_X && x < RESET_X + RESET_W && y >= toolbar && y < toolbar + TOOLBAR_H) {
             boxes[selected] = defaults.clone();
             reset = true;
@@ -133,7 +138,14 @@ final class HudEditor implements InputListener {
 
     @Override public void onSneak(boolean down) { if (down) session.close(); }
     @Override public void onJump(boolean down) {
-        if (down) { var value = reset ? null : boxes[selected].clone(); session.close(); save.accept(value); }
+        if (down) commit();
+    }
+
+    private void commit() {
+        if (handle != 0) move();
+        int[] value = reset ? null : boxes[selected].clone();
+        session.close();
+        save.accept(value);
     }
 
     private void label(int tx, int ty, String text) {
@@ -157,8 +169,10 @@ final class HudEditor implements InputListener {
         frame(selected);
         if (handle == 0) {
             int toolbar = toolbarY();
-            c.fillRect(18, toolbar, 414, TOOLBAR_H, INK);
-            label(27, toolbar + 6, "LPM: chwyc / odloz   Rolka: rozmiar   Spacja: zapisz   Shift: anuluj");
+            c.fillRect(18, toolbar, 338, TOOLBAR_H, INK);
+            label(27, toolbar + 6, "LPM: chwyc / odloz   Rolka: rozmiar   Shift: anuluj");
+            c.fillRect(SAVE_X, toolbar, SAVE_W, TOOLBAR_H, INK);
+            label(SAVE_X + 9, toolbar + 6, "Zapisz");
             c.fillRect(RESET_X, toolbar, RESET_W, TOOLBAR_H, reset ? ACTIVE : INK);
             label(RESET_X + 9, toolbar + 6, reset ? "Domyslny uklad wybrany" : "Przywroc domyslne ustawienia");
         }
