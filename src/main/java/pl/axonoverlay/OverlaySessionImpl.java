@@ -168,6 +168,13 @@ final class OverlaySessionImpl implements OverlaySession {
         }
     }
 
+    boolean editorScroll(int next, int previous) {
+        if (!(listener instanceof HudEditor)) return false;
+        int step = Math.floorMod(next-previous, 9);
+        if (step != 0) listener.onScroll(step <= 4 ? 1 : -1);
+        return true;
+    }
+
     /** Uruchamia sesję: fotel, teleport, ramki, pętla. */
     void start() {
         World world = player.getWorld();
