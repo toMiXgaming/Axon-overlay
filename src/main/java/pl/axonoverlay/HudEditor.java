@@ -1,5 +1,6 @@
 package pl.axonoverlay;
 
+import java.util.Arrays;
 import java.util.function.Consumer;
 import org.bukkit.map.MinecraftFont;
 
@@ -7,20 +8,42 @@ import org.bukkit.map.MinecraftFont;
 final class HudEditor implements InputListener {
     private static final int W = 640, H = 384;
     private static final byte FRAME = 87, ACTIVE = 126, WHITE = 34, INK = 119;
+    private static final int RESET_X = 448, RESET_W = 174, TOOLBAR_H = 21;
+    private static final Limits[] LIMITS = {
+            new Limits(100, 420, 75, 290),
+            new Limits(64, 256, 64, 256),
+            new Limits(96, 380, 21, 21)
+    };
+
+    private record Limits(int minWidth, int maxWidth, int minHeight, int maxHeight) {
+        int[] fit(int[] bounds) {
+            int width = Math.clamp(bounds[2], minWidth, maxWidth);
+            int height = Math.clamp(bounds[3], minHeight, maxHeight);
+            return new int[]{Math.clamp(bounds[0], 0, W - width),
+                    Math.clamp(bounds[1], 0, H - height), width, height};
+        }
+    }
+
     private final OverlaySession session;
     private final int[][] boxes;
     private final int selected;
     private final Consumer<int[]> save;
+    private final int[] defaults;
+    private final Limits limits;
+    private boolean reset;
     private int x = 320, y = 192, grabX, grabY, handle;
     private int[] original;
     private long lastClick;
     private byte[] background;
     private static final String[] LABELS = {"Tablica", "Minimapa", "Kompas"};
 
-    HudEditor(OverlaySession session, int selected, int[][] boxes, Consumer<int[]> save) {
+    HudEditor(OverlaySession session, int selected, int[][] boxes, int[] defaults, Consumer<int[]> save) {
         this.session = session;
         this.selected = selected;
-        this.boxes = java.util.Arrays.stream(boxes).map(int[]::clone).toArray(int[][]::new);
+        this.boxes = Arrays.stream(boxes).map(int[]::clone).toArray(int[][]::new);
+        this.limits = LIMITS[selected];
+        this.boxes[selected] = limits.fit(boxes[selected]);
+        this.defaults = limits.fit(defaults);
         this.save = save;
         session.onInput(this);
         render();
@@ -43,31 +66,45 @@ final class HudEditor implements InputListener {
     private void move() {
         int[] b = boxes[selected], a = original;
         int dx = x - grabX, dy = y - grabY;
-        if (handle == 1) {
-            b[0] = Math.clamp(a[0] + dx, 0, W - b[2]);
-            b[1] = Math.clamp(a[1] + dy, 0, H - b[3]);
-        } else if (handle == 2) {
-            b[0] = Math.clamp(a[0] + dx, 0, a[0] + a[2] - 42);
-            b[2] = a[2] + a[0] - b[0];
-        } else if (handle == 3) b[2] = Math.clamp(a[2] + dx, 42, W - a[0]);
-        else if (handle == 4) {
-            b[1] = Math.clamp(a[1] + dy, 0, a[1] + a[3] - 30);
-            b[3] = a[3] + a[1] - b[1];
-        } else b[3] = Math.clamp(a[3] + dy, 30, H - a[1]);
+        int right = a[0] + a[2], bottom = a[1] + a[3];
+        switch (handle) {
+            case 1 -> {
+                b[0] = Math.clamp(a[0] + dx, 0, W - b[2]);
+                b[1] = Math.clamp(a[1] + dy, 0, H - b[3]);
+            }
+            case 2 -> {
+                b[0] = Math.clamp(a[0] + dx, Math.max(0, right - limits.maxWidth()), right - limits.minWidth());
+                b[2] = right - b[0];
+            }
+            case 3 -> b[2] = Math.clamp(a[2] + dx, limits.minWidth(), Math.min(limits.maxWidth(), W - a[0]));
+            case 4 -> {
+                b[1] = Math.clamp(a[1] + dy, Math.max(0, bottom - limits.maxHeight()), bottom - limits.minHeight());
+                b[3] = bottom - b[1];
+            }
+            case 5 -> b[3] = Math.clamp(a[3] + dy, limits.minHeight(), Math.min(limits.maxHeight(), H - a[1]));
+            default -> { }
+        }
+        if (!Arrays.equals(b, a)) reset = false;
     }
 
     @Override public void onScroll(int direction) {
         if (handle != 0 || direction == 0) return;
         int[] b = boxes[selected];
-        double f = direction > 0 ? 1.08 : 1 / 1.08;
-        double max = (double)W / b[2], min = 42.0 / b[2];
-        if (selected != 2) { max = Math.min(max, (double)H / b[3]); min = Math.max(min, 30.0 / b[3]); }
-        f = Math.clamp(f, min, max);
-        int w = (int)Math.round(b[2]*f), h = selected == 2 ? b[3] : (int)Math.round(b[3]*f);
-        b[0] = Math.clamp(b[0] + (b[2]-w)/2, 0, W-w);
-        b[1] = Math.clamp(b[1] + (b[3]-h)/2, 0, H-h);
-        b[2] = w; b[3] = h;
+        double factor = direction > 0 ? 1.08 : 1 / 1.08;
+        int w = Math.clamp((int) Math.round(b[2] * factor), limits.minWidth(), limits.maxWidth());
+        int h = Math.clamp((int) Math.round(b[3] * factor), limits.minHeight(), limits.maxHeight());
+        if (w == b[2] && h == b[3]) return;
+        b[0] = Math.clamp(b[0] + (b[2] - w) / 2, 0, W - w);
+        b[1] = Math.clamp(b[1] + (b[3] - h) / 2, 0, H - h);
+        b[2] = w;
+        b[3] = h;
+        reset = false;
         render();
+    }
+
+    private int toolbarY() {
+        int[] b = boxes[selected];
+        return b[1] + b[3] >= H - TOOLBAR_H - 10 ? 4 : H - TOOLBAR_H - 4;
     }
 
     @Override public void onLeftClick(boolean down, int px, int py) {
@@ -75,6 +112,13 @@ final class HudEditor implements InputListener {
         lastClick = System.nanoTime();
         x = px; y = py;
         if (handle != 0) { move(); handle = 0; render(); return; }
+        int toolbar = toolbarY();
+        if (x >= RESET_X && x < RESET_X + RESET_W && y >= toolbar && y < toolbar + TOOLBAR_H) {
+            boxes[selected] = defaults.clone();
+            reset = true;
+            render();
+            return;
+        }
         int[] b = boxes[selected];
         if (x >= b[0]-4 && x <= b[0]+b[2]+4 && y >= b[1]-4 && y <= b[1]+b[3]+4) {
             grabX = x; grabY = y; original = b.clone();
@@ -89,14 +133,17 @@ final class HudEditor implements InputListener {
 
     @Override public void onSneak(boolean down) { if (down) session.close(); }
     @Override public void onJump(boolean down) {
-        if (down) { var value = boxes[selected].clone(); session.close(); save.accept(value); }
+        if (down) { var value = reset ? null : boxes[selected].clone(); session.close(); save.accept(value); }
     }
 
     private void label(int tx, int ty, String text) {
         var c = session.canvas();
         for (char ch : text.toCharArray()) {
             var glyph = MinecraftFont.Font.getChar(ch);
-            if (glyph == null) continue;
+            if (glyph == null) {
+                tx += 4;
+                continue;
+            }
             for (int j = 0; j < glyph.getHeight(); j++) for (int i = 0; i < glyph.getWidth(); i++)
                 if (glyph.get(j,i)) c.set(tx+i,ty+j,WHITE);
             tx += glyph.getWidth()+1;
@@ -105,14 +152,45 @@ final class HudEditor implements InputListener {
 
     private void render() {
         var c = session.canvas();
-        c.clear((byte)0);
+        paintBackground(c);
         for (int i = 0; i < boxes.length; i++) if (i != selected) frame(i);
         frame(selected);
-        c.fillRect(90, H-17, 460, 15, INK);
-        label(96,H-13,"LPM: chwyc / odloz   Rolka: rozmiar   Spacja: zapisz   Shift: anuluj");
+        if (handle == 0) {
+            int toolbar = toolbarY();
+            c.fillRect(18, toolbar, 414, TOOLBAR_H, INK);
+            label(27, toolbar + 6, "LPM: chwyc / odloz   Rolka: rozmiar   Spacja: zapisz   Shift: anuluj");
+            c.fillRect(RESET_X, toolbar, RESET_W, TOOLBAR_H, reset ? ACTIVE : INK);
+            label(RESET_X + 9, toolbar + 6, reset ? "Domyslny uklad wybrany" : "Przywroc domyslne ustawienia");
+        }
         if (background == null) background = new byte[W*H];
         System.arraycopy(c.pixels(),0,background,0,W*H);
         cursor();
+    }
+
+    private static void paintBackground(OverlayCanvas c) {
+        c.clear((byte) 119);
+        c.fillRect(0, 263, W, H - 263, (byte) 117);
+        c.fillRect(0, 263, W, 3, (byte) 116);
+
+        // Autorskie pikselowe sylwetki kurczaka i zombie na tle edytora.
+        c.fillRect(66, 236, 7, 27, (byte) 62);
+        c.fillRect(86, 236, 7, 27, (byte) 62);
+        c.fillRect(51, 208, 53, 33, (byte) 21);
+        c.fillRect(77, 180, 33, 34, (byte) 33);
+        c.fillRect(104, 197, 18, 9, (byte) 62);
+        c.fillRect(104, 206, 6, 8, (byte) 17);
+        c.fillRect(96, 189, 5, 5, INK);
+        c.fillRect(59, 216, 28, 13, (byte) 20);
+
+        c.fillRect(549, 242, 12, 21, (byte) 101);
+        c.fillRect(568, 242, 12, 21, (byte) 101);
+        c.fillRect(544, 211, 42, 34, (byte) 93);
+        c.fillRect(527, 211, 20, 12, (byte) 29);
+        c.fillRect(583, 211, 20, 12, (byte) 29);
+        c.fillRect(548, 173, 34, 38, (byte) 29);
+        c.fillRect(553, 187, 6, 5, INK);
+        c.fillRect(569, 187, 6, 5, INK);
+        c.fillRect(559, 197, 10, 3, INK);
     }
 
     private void cursor() {
