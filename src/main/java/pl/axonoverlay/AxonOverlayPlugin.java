@@ -59,14 +59,30 @@ public final class AxonOverlayPlugin extends JavaPlugin {
                 if (i == selected) { p.sendMessage("Zaktualizuj plugin " + names[i] + "."); return; }
             }
         }
+        var selectedPlugin = getServer().getPluginManager().getPlugin(names[selected]);
+        if (selectedPlugin == null || !selectedPlugin.isEnabled()) return;
+        int[] defaults;
+        try {
+            defaults = (int[]) selectedPlugin.getClass()
+                    .getMethod("defaultHudBounds", org.bukkit.entity.Player.class, int.class)
+                    .invoke(selectedPlugin, p, selected);
+        } catch (ReflectiveOperationException ex) {
+            p.sendMessage("Zaktualizuj plugin " + names[selected] + ".");
+            return;
+        }
         var session = manager.open(p, OverlaySpec.builder("axon:hud_layout").density(1).build());
         if (session == null) { p.sendMessage("Nie można teraz otworzyć edytora HUD."); return; }
-        new HudEditor(session, selected, boxes, bounds -> {
+        new HudEditor(session, selected, boxes, defaults, bounds -> {
             var source = getServer().getPluginManager().getPlugin(names[selected]);
             if (source == null) return;
             try {
-                source.getClass().getMethod("saveHudBounds", org.bukkit.entity.Player.class,int.class,int[].class)
-                        .invoke(source,p,selected,bounds);
+                if (bounds == null) {
+                    source.getClass().getMethod("resetHudBounds", org.bukkit.entity.Player.class, int.class)
+                            .invoke(source, p, selected);
+                } else {
+                    source.getClass().getMethod("saveHudBounds", org.bukkit.entity.Player.class, int.class, int[].class)
+                            .invoke(source, p, selected, bounds);
+                }
                 p.sendActionBar(net.kyori.adventure.text.Component.text("Zapisano układ HUD."));
             } catch (ReflectiveOperationException ex) {
                 getLogger().warning("Zapis HUD: " + ex);
