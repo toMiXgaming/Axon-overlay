@@ -13,7 +13,8 @@ final class HudEditor implements InputListener {
     private static final Limits[] LIMITS = {
             new Limits(100, 420, 75, 290),
             new Limits(64, 256, 64, 256),
-            new Limits(96, 380, 21, 21)
+            new Limits(96, 380, 21, 21),
+            new Limits(20, 300, 20, 300)
     };
 
     private record Limits(int minWidth, int maxWidth, int minHeight, int maxHeight) {
@@ -36,7 +37,7 @@ final class HudEditor implements InputListener {
     private int[] original;
     private long lastClick;
     private byte[] background;
-    private static final String[] LABELS = {"Tablica", "Minimapa", "Kompas"};
+    private static final String[] LABELS = {"Tablica", "Minimapa", "Kompas", "Zdrowie"};
 
     HudEditor(OverlaySession session, int selected, int[][] boxes, int[] defaults, Consumer<int[]> save) {
         this.session = session;
