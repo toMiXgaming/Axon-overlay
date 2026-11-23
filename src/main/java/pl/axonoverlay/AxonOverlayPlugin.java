@@ -47,14 +47,16 @@ public final class AxonOverlayPlugin extends JavaPlugin {
 
     /** Separate settings tabs enter the same editor, with only their own rectangle editable. */
     public void editHud(org.bukkit.entity.Player p, int selected) {
-        if (selected < 0 || selected > 2 || !p.isOnline()) return;
-        int[][] boxes = {{475, 85, 156, 120}, {10,10,104,104}, {235,5,170,14}};
-        String[] names = {"AxonScoreboard","AxonMap","AxonMap"};
+        if (selected < 0 || selected > 3 || !p.isOnline()) return;
+        // 0 tablica, 1 minimapa, 2 kompas, 3 kafel zdrowia (AxonScoreboard, u niego część 1)
+        int[][] boxes = {{475, 85, 156, 120}, {10,10,104,104}, {235,5,170,14}, {5, 177, 121, 77}};
+        String[] names = {"AxonScoreboard","AxonMap","AxonMap","AxonScoreboard"};
+        int[] parts = {0, 1, 2, 1};
         for (int i=0; i<boxes.length; i++) {
             var source = getServer().getPluginManager().getPlugin(names[i]);
             if (source == null || !source.isEnabled()) continue;
             try {
-                boxes[i] = (int[])source.getClass().getMethod("hudBounds", org.bukkit.entity.Player.class, int.class).invoke(source,p,i);
+                boxes[i] = (int[])source.getClass().getMethod("hudBounds", org.bukkit.entity.Player.class, int.class).invoke(source,p,parts[i]);
             } catch (ReflectiveOperationException ex) {
                 if (i == selected) { p.sendMessage("Zaktualizuj plugin " + names[i] + "."); return; }
             }
@@ -65,7 +67,7 @@ public final class AxonOverlayPlugin extends JavaPlugin {
         try {
             defaults = (int[]) selectedPlugin.getClass()
                     .getMethod("defaultHudBounds", org.bukkit.entity.Player.class, int.class)
-                    .invoke(selectedPlugin, p, selected);
+                    .invoke(selectedPlugin, p, parts[selected]);
         } catch (ReflectiveOperationException ex) {
             p.sendMessage("Zaktualizuj plugin " + names[selected] + ".");
             return;
@@ -78,10 +80,10 @@ public final class AxonOverlayPlugin extends JavaPlugin {
             try {
                 if (bounds == null) {
                     source.getClass().getMethod("resetHudBounds", org.bukkit.entity.Player.class, int.class)
-                            .invoke(source, p, selected);
+                            .invoke(source, p, parts[selected]);
                 } else {
                     source.getClass().getMethod("saveHudBounds", org.bukkit.entity.Player.class, int.class, int[].class)
-                            .invoke(source, p, selected, bounds);
+                            .invoke(source, p, parts[selected], bounds);
                 }
                 p.sendActionBar(net.kyori.adventure.text.Component.text("Zapisano układ HUD."));
             } catch (ReflectiveOperationException ex) {
