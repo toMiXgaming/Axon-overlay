@@ -27,8 +27,8 @@ public final class OverlayLayout {
      * a gra ucina bloki poza prawdziwym kierunkiem kamery. Zakres jest więc mały: przy poszerzonym
      * polu widzenia (ClientView.WIDE_FOV_WALK_SPEED) obrót o pół zakresu mieści się w zapasie.</p>
      */
-    public static final double CURSOR_YAW_RANGE = 60.0;
-    public static final double CURSOR_PITCH_RANGE = 36.0;
+    public static final double CURSOR_YAW_RANGE = 90.0;
+    public static final double CURSOR_PITCH_RANGE = 54.0;
 
     /**
      * Gdy ekran jest otwarty, klient dostaje czas gry, którego reszta z dzielenia przez 24000 leży
