@@ -28,8 +28,8 @@ import java.util.List;
  */
 final class OverlaySessionImpl implements OverlaySession {
 
-    /** Co ile ticków odświeżamy kursor i wejście. */
-    private static final int TICK_PERIOD = 2;
+    /** Co ile ticków odświeżamy kursor i wejście (co tick: przeciąganie w edytorze HUD nie szarpie). */
+    private static final int TICK_PERIOD = 1;
 
     /** Maksymalna odległość od fotela, przy której przywracamy pozycję. */
     private static final double RESTORE_DISTANCE = 4.0;
