@@ -59,45 +59,54 @@ final class HudGeometry {
      * Nowy prostokąt po przeciągnięciu uchwytu o (dx, dy) od stanu {@code a}.
      * Wynik zawsze mieści się w ekranie i w limitach.
      */
-    static int[] drag(int[] a, int handle, int dx, int dy, Limits limits) {
+    static int[] drag(int[] a, int handle, int dx, int dy, Limits limits, double ratio) {
         if (handle == MOVE) {
             int x = snap(a[0] + dx, a[2], W);
             int y = snap(a[1] + dy, a[3], H);
             return new int[]{Math.clamp(x, 0, W - a[2]), Math.clamp(y, 0, H - a[3]), a[2], a[3]};
         }
-        int left = a[0], top = a[1], right = a[0] + a[2], bottom = a[1] + a[3];
-        if ((handle & LEFT) != 0) {
-            left = Math.clamp(snapEdge(left + dx, W), Math.max(0, right - limits.maxWidth()), right - limits.minWidth());
+        boolean left = (handle & LEFT) != 0, right = (handle & RIGHT) != 0;
+        boolean top = (handle & TOP) != 0, bottom = (handle & BOTTOM) != 0;
+        int xAnchor = left ? a[0] + a[2] : a[0];
+        int yAnchor = top ? a[1] + a[3] : a[1];
+        int w = a[2], h = a[3];
+        if (dx != 0 && left) w = xAnchor - snapEdge(a[0] + dx, W);
+        if (dx != 0 && right) w = snapEdge(a[0] + a[2] + dx, W) - xAnchor;
+        if (dy != 0 && top) h = yAnchor - snapEdge(a[1] + dy, H);
+        if (dy != 0 && bottom) h = snapEdge(a[1] + a[3] + dy, H) - yAnchor;
+        int roomW = left ? xAnchor : right ? W - xAnchor : W;
+        int roomH = top ? yAnchor : bottom ? H - yAnchor : H;
+        double desired = w;
+        if (top || bottom) {
+            // Rzut ruchu rogu na przekątną. Górna i dolna krawędź sterują wysokością.
+            if (left || right) desired += ((h - a[3]) - (w - a[2]) / ratio) / (ratio + 1 / ratio);
+            else desired = a[2] + (h - a[3]) * ratio;
         }
-        if ((handle & RIGHT) != 0) {
-            right = Math.clamp(snapEdge(right + dx, W), left + limits.minWidth(), Math.min(W, left + limits.maxWidth()));
+        int[] size = size(desired, ratio, limits, roomW, roomH);
+        int x = left ? xAnchor - size[0] : right ? xAnchor : a[0] + (a[2] - size[0]) / 2;
+        int y = top ? yAnchor - size[1] : bottom ? yAnchor : a[1] + (a[3] - size[1]) / 2;
+        return new int[]{Math.clamp(x, 0, W - size[0]), Math.clamp(y, 0, H - size[1]), size[0], size[1]};
+    }
+
+    /** Jedna skala okna, ograniczona jednocześnie przez obie osie. */
+    private static int[] size(double targetWidth, double ratio, Limits limits, int roomW, int roomH) {
+        int maxW = Math.min(roomW, limits.maxWidth());
+        if (limits.fixedHeight()) {
+            return new int[]{Math.clamp(Math.round(targetWidth), limits.minWidth(), maxW), limits.minHeight()};
         }
-        if ((handle & TOP) != 0) {
-            top = Math.clamp(snapEdge(top + dy, H), Math.max(0, bottom - limits.maxHeight()), bottom - limits.minHeight());
-        }
-        if ((handle & BOTTOM) != 0) {
-            bottom = Math.clamp(snapEdge(bottom + dy, H), top + limits.minHeight(), Math.min(H, top + limits.maxHeight()));
-        }
-        return new int[]{left, top, right - left, bottom - top};
+        int maxH = Math.min(roomH, limits.maxHeight());
+        int min = Math.max(limits.minWidth(), (int) Math.ceil((limits.minHeight() - 0.5) * ratio));
+        int max = Math.min(maxW, (int) Math.ceil((maxH + 0.5) * ratio) - 1);
+        int width = Math.clamp(Math.round(targetWidth), min, max);
+        return new int[]{width, (int) Math.round(width / ratio)};
     }
 
     /** Skalowanie rolką wokół środka prostokąta. */
-    static int[] scale(int[] b, double factor, Limits limits) {
-        int w = Math.clamp((int) Math.round(b[2] * factor), limits.minWidth(), limits.maxWidth());
-        int h = limits.fixedHeight() ? b[3]
-                : Math.clamp((int) Math.round(b[3] * factor), limits.minHeight(), limits.maxHeight());
-        // Gdy jeden wymiar oparł się o limit, drugi nie rośnie dalej (zachowujemy proporcje).
-        if (!limits.fixedHeight() && b[2] > 0 && b[3] > 0) {
-            double sw = (double) w / b[2], sh = (double) h / b[3];
-            double s = factor >= 1 ? Math.min(sw, sh) : Math.max(sw, sh);
-            w = Math.clamp((int) Math.round(b[2] * s), limits.minWidth(), limits.maxWidth());
-            h = Math.clamp((int) Math.round(b[3] * s), limits.minHeight(), limits.maxHeight());
-        }
-        w = Math.min(w, W);
-        h = Math.min(h, H);
-        int x = Math.clamp(b[0] + (b[2] - w) / 2, 0, W - w);
-        int y = Math.clamp(b[1] + (b[3] - h) / 2, 0, H - h);
-        return new int[]{x, y, w, h};
+    static int[] scale(int[] b, double factor, Limits limits, double ratio) {
+        int[] size = size(b[2] * factor, ratio, limits, W, H);
+        int x = Math.clamp(b[0] + (b[2] - size[0]) / 2, 0, W - size[0]);
+        int y = Math.clamp(b[1] + (b[3] - size[1]) / 2, 0, H - size[1]);
+        return new int[]{x, y, size[0], size[1]};
     }
 
     /** Pozycja początku odcinka o długości {@code size}, przyciągnięta do 0, środka i końca ekranu. */
