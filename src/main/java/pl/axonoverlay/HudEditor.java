@@ -38,6 +38,7 @@ final class HudEditor implements InputListener {
     private final OverlaySession session;
     private final int[][] boxes;
     private final int[][] start;
+    private final double[] ratios;
     private final int[][] defaults;
     private final boolean[] available;
     private final boolean[] reset;
@@ -58,11 +59,14 @@ final class HudEditor implements InputListener {
         this.available = available.clone();
         this.boxes = new int[boxes.length][];
         this.defaults = new int[boxes.length][];
+        this.start = new int[boxes.length][];
+        this.ratios = new double[boxes.length];
         for (int i = 0; i < boxes.length; i++) {
-            this.boxes[i] = LIMITS[i].fit(boxes[i]);
-            this.defaults[i] = defaults[i] == null ? this.boxes[i].clone() : LIMITS[i].fit(defaults[i]);
+            this.start[i] = LIMITS[i].fit(boxes[i]);
+            this.defaults[i] = defaults[i] == null ? this.start[i].clone() : LIMITS[i].fit(defaults[i]);
+            ratios[i] = (double) this.defaults[i][2] / this.defaults[i][3];
+            this.boxes[i] = HudGeometry.scale(start[i], 1, LIMITS[i], ratios[i]);
         }
-        this.start = Arrays.stream(this.boxes).map(int[]::clone).toArray(int[][]::new);
         this.reset = new boolean[boxes.length];
         this.selected = selected;
         this.saver = saver;
@@ -81,7 +85,7 @@ final class HudEditor implements InputListener {
         x = px;
         y = py;
         if (handle != 0) {
-            boxes[selected] = HudGeometry.drag(original, handle, x - grabX, y - grabY, LIMITS[selected]);
+            boxes[selected] = HudGeometry.drag(original, handle, x - grabX, y - grabY, LIMITS[selected], ratios[selected]);
             reset[selected] = false;
         } else {
             updateHover();
@@ -97,7 +101,7 @@ final class HudEditor implements InputListener {
         y = py;
         if (handle != 0) {
             // drugi klik odkłada element tam, gdzie jest
-            boxes[selected] = HudGeometry.drag(original, handle, x - grabX, y - grabY, LIMITS[selected]);
+            boxes[selected] = HudGeometry.drag(original, handle, x - grabX, y - grabY, LIMITS[selected], ratios[selected]);
             handle = 0;
             updateHover();
             render();
@@ -143,7 +147,7 @@ final class HudEditor implements InputListener {
     @Override
     public void onScroll(int direction) {
         if (direction == 0) return;
-        int[] next = HudGeometry.scale(boxes[selected], direction > 0 ? 1.08 : 1 / 1.08, LIMITS[selected]);
+        int[] next = HudGeometry.scale(boxes[selected], direction > 0 ? 1.08 : 1 / 1.08, LIMITS[selected], ratios[selected]);
         if (Arrays.equals(next, boxes[selected])) return;
         boxes[selected] = next;
         reset[selected] = false;
