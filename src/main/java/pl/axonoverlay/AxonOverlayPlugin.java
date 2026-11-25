@@ -45,45 +45,49 @@ public final class AxonOverlayPlugin extends JavaPlugin {
         }
     }
 
-    /** Separate settings tabs enter the same editor, with only their own rectangle editable. */
+    /**
+     * Edytor układu HUD. Otwiera się z wybranym elementem ({@code selected}), ale w tym samym oknie
+     * da się przesunąć każdy dostępny element; zapis trafia do pluginu, do którego element należy.
+     */
     public void editHud(org.bukkit.entity.Player p, int selected) {
         if (selected < 0 || selected > 3 || !p.isOnline()) return;
         // 0 tablica, 1 minimapa, 2 kompas, 3 kafel zdrowia (AxonScoreboard, u niego część 1)
-        int[][] boxes = {{475, 85, 156, 120}, {10,10,104,104}, {235,5,170,14}, {5, 177, 121, 77}};
-        String[] names = {"AxonScoreboard","AxonMap","AxonMap","AxonScoreboard"};
+        int[][] boxes = {{475, 85, 156, 120}, {10, 10, 104, 104}, {235, 5, 170, 21}, {5, 177, 121, 77}};
+        String[] names = {"AxonScoreboard", "AxonMap", "AxonMap", "AxonScoreboard"};
         int[] parts = {0, 1, 2, 1};
-        for (int i=0; i<boxes.length; i++) {
+        boolean[] available = new boolean[boxes.length];
+        int[][] defaults = new int[boxes.length][];
+        for (int i = 0; i < boxes.length; i++) {
             var source = getServer().getPluginManager().getPlugin(names[i]);
             if (source == null || !source.isEnabled()) continue;
             try {
-                boxes[i] = (int[])source.getClass().getMethod("hudBounds", org.bukkit.entity.Player.class, int.class).invoke(source,p,parts[i]);
-            } catch (ReflectiveOperationException ex) {
-                if (i == selected) { p.sendMessage("Zaktualizuj plugin " + names[i] + "."); return; }
+                boxes[i] = (int[]) source.getClass().getMethod("hudBounds", org.bukkit.entity.Player.class, int.class)
+                        .invoke(source, p, parts[i]);
+                defaults[i] = (int[]) source.getClass().getMethod("defaultHudBounds", org.bukkit.entity.Player.class, int.class)
+                        .invoke(source, p, parts[i]);
+                available[i] = boxes[i] != null && boxes[i].length == 4;
+            } catch (ReflectiveOperationException | RuntimeException ex) {
+                available[i] = false;
             }
         }
-        var selectedPlugin = getServer().getPluginManager().getPlugin(names[selected]);
-        if (selectedPlugin == null || !selectedPlugin.isEnabled()) return;
-        int[] defaults;
-        try {
-            defaults = (int[]) selectedPlugin.getClass()
-                    .getMethod("defaultHudBounds", org.bukkit.entity.Player.class, int.class)
-                    .invoke(selectedPlugin, p, parts[selected]);
-        } catch (ReflectiveOperationException ex) {
+        if (!available[selected]) {
             p.sendMessage("Zaktualizuj plugin " + names[selected] + ".");
             return;
         }
-        var session = manager.open(p, OverlaySpec.builder("axon:hud_layout").density(1).build());
+        // Przy przeciąganiu zmieniają się tylko kafle wokół ramki, ale przy 20 ruchach na sekundę
+        // domyślne 10 kafli na sekundę dławiło edytor.
+        var session = manager.open(p, OverlaySpec.builder("axon:hud_layout").density(1).tilesPerSecond(120).build());
         if (session == null) { p.sendMessage("Nie można teraz otworzyć edytora HUD."); return; }
-        new HudEditor(session, selected, boxes, defaults, bounds -> {
-            var source = getServer().getPluginManager().getPlugin(names[selected]);
+        new HudEditor(session, selected, boxes, available, defaults, (part, bounds) -> {
+            var source = getServer().getPluginManager().getPlugin(names[part]);
             if (source == null) return;
             try {
                 if (bounds == null) {
                     source.getClass().getMethod("resetHudBounds", org.bukkit.entity.Player.class, int.class)
-                            .invoke(source, p, parts[selected]);
+                            .invoke(source, p, parts[part]);
                 } else {
                     source.getClass().getMethod("saveHudBounds", org.bukkit.entity.Player.class, int.class, int[].class)
-                            .invoke(source, p, parts[selected], bounds);
+                            .invoke(source, p, parts[part], bounds);
                 }
                 p.sendActionBar(net.kyori.adventure.text.Component.text("Zapisano układ HUD."));
             } catch (ReflectiveOperationException ex) {
